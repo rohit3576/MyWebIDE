@@ -1,4 +1,20 @@
 // ================================
+// GITHUB PAGES FIX (WORKER PROXY)
+// ================================
+// This bypasses the browser's Cross-Origin protection for Web Workers
+// by creating a local data-URI proxy that imports the CDN scripts.
+window.MonacoEnvironment = {
+  getWorkerUrl: function (workerId, label) {
+    return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
+      self.MonacoEnvironment = {
+        baseUrl: 'https://unpkg.com/monaco-editor@0.45.0/min/'
+      };
+      importScripts('https://unpkg.com/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');`
+    )}`;
+  }
+};
+
+// ================================
 // MONACO EDITOR CONFIGURATION
 // ================================
 require.config({
@@ -395,7 +411,6 @@ require(['vs/editor/editor.main'], () => {
       }
     }
   });
-
 
   // ================================
   // LIVE PREVIEW LOGIC
