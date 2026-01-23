@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zero-Latency Web IDE</title>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- SIDEBAR / FILE EXPLORER -->
+    <aside id="sidebar">
+      <div class="sidebar-header">EXPLORER</div>
+
+      <ul class="file-tree">
+        <li class="file active">index.html</li>
+        <li class="file">style.css</li>
+        <li class="file">app.js</li>
+      </ul>
+    </aside>
+
+    <!-- MAIN EDITOR AREA -->
+    <main id="main">
+
+      <!-- TABS BAR -->
+      <div id="tabs">
+        <div class="tab active">index.html ✕</div>
+        <div class="tab">style.css ✕</div>
+      </div>
+
+      <!-- EDITOR PLACEHOLDER -->
+      <div id="editor-placeholder">
+        <p>// Editor will load here</p>
+      </div>
+
+    </main>
+
+    <!-- LIVE PREVIEW -->
+    <section id="preview">
+      <div class="preview-header">LIVE PREVIEW</div>
+      <iframe></iframe>
+    </section>
+
+  </div>
+
+</body>
+</html>
