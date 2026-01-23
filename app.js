@@ -13,6 +13,7 @@ require(['vs/editor/editor.main'], () => {
   let db;
   const openTabs = new Map(); // filename -> { model, cursorPosition, dirty }
   let activeFile = null;
+  let debounceTimer = null;   // Timer for Live Preview
 
   // DOM Elements
   const previewFrame = document.getElementById('preview-frame');
@@ -127,7 +128,7 @@ require(['vs/editor/editor.main'], () => {
     if (files.length) return;
     
     await saveFileDB({ id: 'index.html', language: 'html', content: '<h1>Hello IDE 🚀</h1>' });
-    await saveFileDB({ id: 'style.css', language: 'css', content: 'body {\n  font-family: sans-serif;\n  background: #f4f4f4;\n  color: #333;\n}' });
+    await saveFileDB({ id: 'style.css', language: 'css', content: 'body {\n  font-family: sans-serif;\n  background: #f4f4f4;\n  color: #333;\n  transition: all 0.3s ease;\n}' });
     await saveFileDB({ id: 'script.js', language: 'javascript', content: 'console.log("System Ready");' });
   }
 
@@ -327,48 +328,11 @@ require(['vs/editor/editor.main'], () => {
   }
 
   // ================================
-  // EDITOR EVENTS (Dirty State & Save)
+  // LIVE PREVIEW LOGIC
   // ================================
-  editor.onDidChangeModelContent(() => {
-    if (!activeFile) return;
-    
-    const tabData = openTabs.get(activeFile);
-    if (!tabData.dirty) {
-      tabData.dirty = true;
-      const indicator = document.querySelector(`.tab[data-file="${activeFile}"] .dirty-indicator`);
-      if (indicator) indicator.textContent = '●';
-    }
-  });
-
-  window.addEventListener('keydown', async e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      if (!activeFile) return;
-
-      const tabData = openTabs.get(activeFile);
-      const content = tabData.model.getValue();
-      
-      await saveFileDB({
-        id: activeFile,
-        language: tabData.model.getLanguageId(),
-        content: content
-      });
-
-      tabData.dirty = false;
-      const indicator = document.querySelector(`.tab[data-file="${activeFile}"] .dirty-indicator`);
-      if (indicator) indicator.textContent = '';
-      
-      // Update Save Status in Toolbar
-      const status = document.getElementById('save-status');
-      status.textContent = 'Saved';
-      setTimeout(() => status.textContent = '', 2000);
-    }
-  });
-
-  // ================================
-  // EXECUTION LOGIC
-  // ================================
-  runBtn.onclick = async () => {
+  
+  // Core function to gather files and update iframe
+  const updatePreview = async () => {
     const files = await getAllFiles();
     
     // Get content from live editors if available (to run unsaved changes)
@@ -403,11 +367,61 @@ require(['vs/editor/editor.main'], () => {
     previewFrame.srcdoc = source;
   };
 
+  // Run Button (Immediate)
+  runBtn.onclick = updatePreview;
+
+  // ================================
+  // EDITOR EVENTS (Dirty State & Auto-Run)
+  // ================================
+  editor.onDidChangeModelContent(() => {
+    if (!activeFile) return;
+    
+    const tabData = openTabs.get(activeFile);
+    
+    // 1. Mark as Dirty
+    if (!tabData.dirty) {
+      tabData.dirty = true;
+      const indicator = document.querySelector(`.tab[data-file="${activeFile}"] .dirty-indicator`);
+      if (indicator) indicator.textContent = '●';
+    }
+
+    // 2. Trigger Live Preview (Debounced)
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        updatePreview();
+    }, 800); // Waits 800ms after you stop typing to refresh
+  });
+
+  window.addEventListener('keydown', async e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      if (!activeFile) return;
+
+      const tabData = openTabs.get(activeFile);
+      const content = tabData.model.getValue();
+      
+      await saveFileDB({
+        id: activeFile,
+        language: tabData.model.getLanguageId(),
+        content: content
+      });
+
+      tabData.dirty = false;
+      const indicator = document.querySelector(`.tab[data-file="${activeFile}"] .dirty-indicator`);
+      if (indicator) indicator.textContent = '';
+      
+      // Update Save Status in Toolbar
+      const status = document.getElementById('save-status');
+      status.textContent = 'Saved';
+      setTimeout(() => status.textContent = '', 2000);
+    }
+  });
+
   // ================================
   // COMMAND PALETTE
   // ================================
   const commands = [
-    { label: '> Run Project', action: () => runBtn.click() },
+    { label: '> Run Project', action: updatePreview },
     { label: '> New File', action: () => newBtn.click() },
     { label: '> Rename File', action: startRename },
     { label: '> Delete File', action: () => deleteBtn.click() },
@@ -473,6 +487,9 @@ require(['vs/editor/editor.main'], () => {
     const files = await getAllFiles();
     const index = files.find(f => f.id === 'index.html');
     if (index) openFile(index);
+    
+    // Run initial preview
+    updatePreview();
   })();
 
 });
