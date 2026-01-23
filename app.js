@@ -328,6 +328,76 @@ require(['vs/editor/editor.main'], () => {
   }
 
   // ================================
+  // DRAG & DROP IMPORT
+  // ================================
+  
+  // Inject style for drag feedback
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .drop-zone-active {
+      box-shadow: inset 0 0 0 4px #007acc; /* Blue glow */
+      transition: box-shadow 0.2s;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Drag Enter / Over
+  window.addEventListener('dragover', e => {
+    e.preventDefault();
+    document.body.classList.add('drop-zone-active');
+  });
+
+  // Drag Leave
+  window.addEventListener('dragleave', e => {
+    // Only remove if leaving the window (relatedTarget is null)
+    if (!e.relatedTarget || e.relatedTarget.nodeName === 'HTML') {
+      document.body.classList.remove('drop-zone-active');
+    }
+  });
+
+  // Drop
+  window.addEventListener('drop', async e => {
+    e.preventDefault();
+    document.body.classList.remove('drop-zone-active');
+
+    if (e.dataTransfer.items) {
+      // Loop through all dropped items
+      for (const item of e.dataTransfer.items) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (!file) continue;
+
+          // Read file content
+          try {
+            const content = await file.text();
+            
+            // Check if exists
+            const exists = (await getAllFiles()).find(f => f.id === file.name);
+            if (exists && !confirm(`Overwrite ${file.name}?`)) continue;
+
+            const newFile = {
+              id: file.name,
+              language: detectLanguage(file.name),
+              content: content
+            };
+
+            await saveFileDB(newFile);
+            
+            // Refresh UI
+            await renderFileTree();
+            openFile(newFile);
+
+          } catch (err) {
+            console.error('Failed to read file:', err);
+            alert('Error reading file: ' + file.name);
+          }
+        }
+      }
+    }
+  });
+
+
+  // ================================
   // LIVE PREVIEW LOGIC
   // ================================
   
