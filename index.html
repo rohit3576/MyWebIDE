@@ -14,7 +14,6 @@
 
     <!-- SIDEBAR / FILE EXPLORER -->
     <aside id="sidebar">
-
       <div class="sidebar-header">
         <span>EXPLORER</span>
         <button id="new-file-btn" title="New File">＋</button>
@@ -22,23 +21,20 @@
 
       <!-- Dynamic file list -->
       <ul class="file-tree" id="file-tree"></ul>
-
     </aside>
 
     <!-- MAIN EDITOR AREA -->
     <main id="main">
 
-      <!-- TABS BAR (static for now, dynamic next phase) -->
-      <div id="tabs">
-        <div class="tab active">index.html ✕</div>
-      </div>
+      <!-- TABS BAR (fully dynamic via JS) -->
+      <div id="tabs"></div>
 
       <!-- MONACO EDITOR CONTAINER -->
       <div id="editor"></div>
 
     </main>
 
-    <!-- LIVE PREVIEW (next phase) -->
+    <!-- LIVE PREVIEW (Phase 5) -->
     <section id="preview">
       <div class="preview-header">LIVE PREVIEW</div>
       <iframe id="preview-frame"></iframe>

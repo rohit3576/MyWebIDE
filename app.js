@@ -1,8 +1,6 @@
 // ================================
 // MONACO EDITOR CONFIGURATION
 // ================================
-
-// Configure Monaco base path
 require.config({
   paths: {
     vs: 'https://unpkg.com/monaco-editor@0.45.0/min/vs'
@@ -15,7 +13,8 @@ require(['vs/editor/editor.main'], () => {
   // GLOBAL STATE
   // ================================
   let db;
-  let currentModel = null;
+  const openTabs = new Map(); // filename -> { model, cursorPosition }
+  let activeFile = null;
 
   // ================================
   // CREATE MONACO EDITOR
@@ -112,7 +111,7 @@ require(['vs/editor/editor.main'], () => {
   }
 
   // ================================
-  // FILE EXPLORER UI
+  // FILE EXPLORER
   // ================================
   async function renderFileTree() {
     const tree = document.getElementById('file-tree');
@@ -124,24 +123,101 @@ require(['vs/editor/editor.main'], () => {
       const li = document.createElement('li');
       li.className = 'file';
       li.textContent = file.id;
-
       li.onclick = () => openFile(file);
-
       tree.appendChild(li);
     });
   }
 
+  // ================================
+  // TAB SYSTEM (CORE FEATURE)
+  // ================================
   function openFile(file) {
-    if (currentModel) {
-      currentModel.dispose();
+    if (openTabs.has(file.id)) {
+      switchTab(file.id);
+      return;
     }
 
-    currentModel = monaco.editor.createModel(
+    const model = monaco.editor.createModel(
       file.content,
       file.language
     );
 
-    editor.setModel(currentModel);
+    openTabs.set(file.id, {
+      model,
+      cursorPosition: null
+    });
+
+    createTab(file.id);
+    switchTab(file.id);
+  }
+
+  function createTab(filename) {
+    const tabs = document.getElementById('tabs');
+
+    const tab = document.createElement('div');
+    tab.className = 'tab';
+    tab.dataset.file = filename;
+    tab.innerHTML = `
+      ${filename}
+      <span class="close">✕</span>
+    `;
+
+    tab.onclick = e => {
+      if (e.target.classList.contains('close')) {
+        closeTab(filename);
+        e.stopPropagation();
+      } else {
+        switchTab(filename);
+      }
+    };
+
+    tabs.appendChild(tab);
+  }
+
+  function switchTab(filename) {
+    if (activeFile && openTabs.has(activeFile)) {
+      openTabs.get(activeFile).cursorPosition =
+        editor.getPosition();
+    }
+
+    activeFile = filename;
+    const { model, cursorPosition } = openTabs.get(filename);
+
+    editor.setModel(model);
+    if (cursorPosition) editor.setPosition(cursorPosition);
+
+    highlightActiveTab(filename);
+  }
+
+  function highlightActiveTab(filename) {
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.toggle(
+        'active',
+        tab.dataset.file === filename
+      );
+    });
+  }
+
+  function closeTab(filename) {
+    const tabData = openTabs.get(filename);
+    if (!tabData) return;
+
+    tabData.model.dispose();
+    openTabs.delete(filename);
+
+    document
+      .querySelector(`.tab[data-file="${filename}"]`)
+      ?.remove();
+
+    if (activeFile === filename) {
+      const next = openTabs.keys().next().value;
+      if (next) {
+        switchTab(next);
+      } else {
+        editor.setModel(null);
+        activeFile = null;
+      }
+    }
   }
 
   // ================================
@@ -168,7 +244,6 @@ require(['vs/editor/editor.main'], () => {
     await seedFiles();
     await renderFileTree();
 
-    // Open first file by default
     const files = await getAllFiles();
     if (files.length) openFile(files[0]);
   })();
