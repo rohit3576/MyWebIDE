@@ -3,59 +3,103 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Zero-Latency Web IDE" />
   <title>Zero-Latency Web IDE</title>
 
-  <!-- Main Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
   <div id="app">
 
-    <!-- SIDEBAR / FILE EXPLORER -->
     <aside id="sidebar">
-
-      <!-- Explorer Header -->
       <div class="sidebar-header">
-        <span>EXPLORER</span>
-        <button id="new-file-btn" title="New File">＋</button>
+        <span class="header-title">EXPLORER</span>
+        <div class="sidebar-actions">
+          <button id="new-file-btn" title="New File">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+          </button>
+          <button id="delete-file-btn" title="Delete File">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
       </div>
 
-      <!-- Dynamic file list -->
-      <ul class="file-tree" id="file-tree"></ul>
+      <ul class="file-tree" id="file-tree">
+        </ul>
 
-      <!-- Theme Switcher -->
       <div class="theme-switcher">
-        <button id="theme-toggle" title="Toggle Theme">
-          🌓 Toggle Theme
+        <button id="theme-toggle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          Toggle Theme
         </button>
       </div>
-
     </aside>
 
-    <!-- MAIN EDITOR AREA -->
     <main id="main">
 
-      <!-- TABS BAR (controlled by JS) -->
-      <div id="tabs"></div>
+      <div id="toolbar">
+        <div class="toolbar-left">
+          <button id="run-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="margin-right: 6px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Run
+          </button>
+        </div>
+        <div class="toolbar-right">
+          <span id="save-status" title="Status"></span>
+        </div>
+      </div>
 
-      <!-- MONACO EDITOR CONTAINER -->
+      <div id="tabs">
+        </div>
+
       <div id="editor"></div>
 
     </main>
 
-    <!-- LIVE PREVIEW -->
     <section id="preview">
-      <div class="preview-header">LIVE PREVIEW</div>
-      <iframe id="preview-frame"></iframe>
+      <div class="preview-header">
+        <span class="preview-label">LIVE PREVIEW</span>
+      </div>
+      <iframe id="preview-frame" sandbox="allow-scripts" title="Preview"></iframe>
     </section>
 
   </div>
 
-  <!-- MONACO EDITOR LOADER -->
-  <script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
+  <div id="command-palette-overlay" hidden>
+    <div class="command-palette">
+      <div class="palette-search-wrapper">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input
+          type="text"
+          id="command-input"
+          placeholder="Type a command..."
+          autocomplete="off"
+        />
+      </div>
+      <ul id="command-list">
+        </ul>
+      <div class="palette-footer">
+        <span><kbd>↑</kbd> <kbd>↓</kbd> to navigate</span>
+        <span><kbd>↵</kbd> to select</span>
+        <span><kbd>esc</kbd> to close</span>
+      </div>
+    </div>
+  </div>
 
-  <!-- APP LOGIC -->
+  <footer id="status-bar">
+    <div class="status-left">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+      <span>Zero-Latency IDE</span>
+    </div>
+    <div class="status-right" id="status-cursor">Ln 1, Col 1</div>
+  </footer>
+
+  <script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
   <script src="app.js"></script>
 
 </body>

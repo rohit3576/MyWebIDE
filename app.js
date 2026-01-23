@@ -2,9 +2,7 @@
 // MONACO EDITOR CONFIGURATION
 // ================================
 require.config({
-  paths: {
-    vs: 'https://unpkg.com/monaco-editor@0.45.0/min/vs'
-  }
+  paths: { vs: 'https://unpkg.com/monaco-editor@0.45.0/min/vs' }
 });
 
 require(['vs/editor/editor.main'], () => {
@@ -13,22 +11,38 @@ require(['vs/editor/editor.main'], () => {
   // GLOBAL STATE
   // ================================
   let db;
-  const openTabs = new Map(); // filename -> { model, cursorPosition }
+  const openTabs = new Map(); // filename -> { model, cursorPosition, dirty }
   let activeFile = null;
-  let previewTimer = null;
 
+  // DOM Elements
   const previewFrame = document.getElementById('preview-frame');
+  const runBtn = document.getElementById('run-btn');
+  const newBtn = document.getElementById('new-file-btn');
+  const deleteBtn = document.getElementById('delete-file-btn');
   const themeToggleBtn = document.getElementById('theme-toggle');
+  const statusCursor = document.getElementById('status-cursor');
+  const fileTree = document.getElementById('file-tree');
+  const tabsContainer = document.getElementById('tabs');
+
+  // Command Palette
+  const paletteOverlay = document.getElementById('command-palette-overlay');
+  const paletteInput = document.getElementById('command-input');
+  const commandList = document.getElementById('command-list');
 
   // ================================
-  // DEFINE MONACO THEMES
+  // MONACO THEMES & SETUP
   // ================================
   monaco.editor.defineTheme('one-dark', {
     base: 'vs-dark',
     inherit: true,
-    rules: [],
-    colors: {
-      'editor.background': '#1e1e1e'
+    rules: [
+      { token: 'comment', foreground: '6a9955' },
+      { token: 'keyword', foreground: '569cd6' }
+    ],
+    colors: { 
+      'editor.background': '#1e1e1e',
+      'editor.lineHighlightBackground': '#2a2d2e',
+      'editorLineNumber.foreground': '#858585'
     }
   });
 
@@ -36,240 +50,338 @@ require(['vs/editor/editor.main'], () => {
     base: 'hc-black',
     inherit: true,
     rules: [],
-    colors: {
-      'editor.background': '#000000'
-    }
+    colors: { 'editor.background': '#000000' }
   });
 
-  // ================================
-  // CREATE MONACO EDITOR
-  // ================================
+  // Create Editor
   window.editor = monaco.editor.create(
     document.getElementById('editor'),
     {
-      value: '',
-      language: 'html',
       theme: 'one-dark',
       fontSize: 14,
-      fontFamily: 'Fira Code, Consolas, monospace',
+      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
       minimap: { enabled: false },
-      scrollBeyondLastLine: false,
       automaticLayout: true,
-      tabSize: 2,
-      wordWrap: 'on'
+      wordWrap: 'on',
+      padding: { top: 16 }
     }
   );
+
+  // Update Status Bar on Cursor Change
+  editor.onDidChangeCursorPosition(e => {
+    statusCursor.textContent = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+  });
 
   // ================================
   // THEME ENGINE
   // ================================
   function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-
-    if (theme === 'high-contrast') {
-      monaco.editor.setTheme('high-contrast');
-    } else {
-      monaco.editor.setTheme('one-dark');
-    }
-
+    monaco.editor.setTheme(theme === 'high-contrast' ? 'high-contrast' : 'one-dark');
     localStorage.setItem('ide-theme', theme);
   }
 
-  if (themeToggleBtn) {
-    themeToggleBtn.onclick = () => {
-      const current = localStorage.getItem('ide-theme') || 'one-dark';
-      const next = current === 'one-dark' ? 'high-contrast' : 'one-dark';
-      setTheme(next);
-    };
-  }
+  themeToggleBtn.onclick = () => {
+    const cur = localStorage.getItem('ide-theme') || 'one-dark';
+    setTheme(cur === 'one-dark' ? 'high-contrast' : 'one-dark');
+  };
 
   // ================================
-  // INDEXED DB SETUP
+  // DATABASE (IndexedDB)
   // ================================
   function openDB() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('zero-latency-ide', 1);
-
-      request.onupgradeneeded = e => {
-        db = e.target.result;
-        db.createObjectStore('files', { keyPath: 'id' });
-      };
-
-      request.onsuccess = e => {
-        db = e.target.result;
-        resolve();
-      };
-
-      request.onerror = () => reject('IndexedDB failed');
-    });
-  }
-
-  function saveFile(file) {
-    const tx = db.transaction('files', 'readwrite');
-    tx.objectStore('files').put(file);
-  }
-
-  function getAllFiles() {
     return new Promise(resolve => {
-      const tx = db.transaction('files', 'readonly');
-      const request = tx.objectStore('files').getAll();
-      request.onsuccess = () => resolve(request.result);
+      const req = indexedDB.open('zero-latency-ide', 1);
+      req.onupgradeneeded = e =>
+        e.target.result.createObjectStore('files', { keyPath: 'id' });
+      req.onsuccess = e => { db = e.target.result; resolve(); };
     });
   }
 
+  const store = mode => db.transaction('files', mode).objectStore('files');
+  const saveFileDB = file => store('readwrite').put(file);
+  const deleteFileDB = id => store('readwrite').delete(id);
+  const getAllFiles = () =>
+    new Promise(res => {
+      const r = store('readonly').getAll();
+      r.onsuccess = () => res(r.result);
+    });
+
   // ================================
-  // FILE HELPERS
+  // HELPER FUNCTIONS
   // ================================
-  function detectLanguage(filename) {
-    if (filename.endsWith('.html')) return 'html';
-    if (filename.endsWith('.css')) return 'css';
-    if (filename.endsWith('.js')) return 'javascript';
-    if (filename.endsWith('.py')) return 'python';
-    return 'plaintext';
-  }
+  const detectLanguage = name =>
+    name.endsWith('.html') ? 'html' :
+    name.endsWith('.css') ? 'css' :
+    name.endsWith('.js') ? 'javascript' : 'plaintext';
+
+  const getFileIcon = name => {
+    if (name.endsWith('.html')) return '🌐';
+    if (name.endsWith('.css')) return '🎨';
+    if (name.endsWith('.js')) return '📜';
+    return '📄';
+  };
 
   async function seedFiles() {
     const files = await getAllFiles();
-    if (files.length === 0) {
-      saveFile({
-        id: 'index.html',
-        language: 'html',
-        content: `<h1>Hello Zero-Latency IDE 🚀</h1>`
-      });
-
-      saveFile({
-        id: 'style.css',
-        language: 'css',
-        content: `body { font-family: sans-serif; }`
-      });
-
-      saveFile({
-        id: 'script.js',
-        language: 'javascript',
-        content: `console.log("Live preview working");`
-      });
-    }
+    if (files.length) return;
+    
+    await saveFileDB({ id: 'index.html', language: 'html', content: '<h1>Hello IDE 🚀</h1>' });
+    await saveFileDB({ id: 'style.css', language: 'css', content: 'body {\n  font-family: sans-serif;\n  background: #f4f4f4;\n  color: #333;\n}' });
+    await saveFileDB({ id: 'script.js', language: 'javascript', content: 'console.log("System Ready");' });
   }
 
   // ================================
   // FILE EXPLORER
   // ================================
   async function renderFileTree() {
-    const tree = document.getElementById('file-tree');
-    tree.innerHTML = '';
-
+    fileTree.innerHTML = '';
     const files = await getAllFiles();
 
-    files.forEach(file => {
+    files.forEach(f => {
       const li = document.createElement('li');
       li.className = 'file';
-      li.textContent = file.id;
-      li.onclick = () => openFile(file);
-      tree.appendChild(li);
+      if (f.id === activeFile) li.classList.add('active');
+      li.dataset.file = f.id;
+      li.title = f.id; // Tooltip
+
+      // New HTML Structure matching CSS
+      li.innerHTML = `
+        <span class="file-icon">${getFileIcon(f.id)}</span>
+        <span class="file-name">${f.id}</span>
+        <input class="rename-input" value="${f.id}" />
+      `;
+
+      li.onclick = e => {
+        if (!e.target.classList.contains('rename-input')) openFile(f);
+      };
+
+      fileTree.appendChild(li);
     });
   }
 
   // ================================
-  // TAB SYSTEM
+  // TAB MANAGEMENT
   // ================================
   function openFile(file) {
-    if (openTabs.has(file.id)) {
-      switchTab(file.id);
-      return;
-    }
+    if (openTabs.has(file.id)) return switchTab(file.id);
 
-    const model = monaco.editor.createModel(
-      file.content,
-      file.language
-    );
-
-    openTabs.set(file.id, {
-      model,
-      cursorPosition: null
-    });
-
+    // Create Model
+    const model = monaco.editor.createModel(file.content, file.language);
+    openTabs.set(file.id, { model, cursorPosition: null, dirty: false });
+    
+    // Add Tab UI
     createTab(file.id);
     switchTab(file.id);
   }
 
-  function createTab(filename) {
-    const tabs = document.getElementById('tabs');
-
+  function createTab(name) {
     const tab = document.createElement('div');
     tab.className = 'tab';
-    tab.dataset.file = filename;
-    tab.innerHTML = `${filename} <span class="close">✕</span>`;
+    tab.dataset.file = name;
 
+    tab.innerHTML = `
+      <span class="dirty-indicator"></span>
+      <span class="tab-name">${name}</span>
+      <span class="close">✕</span>
+    `;
+
+    // Handle Close vs Switch
     tab.onclick = e => {
+      e.stopPropagation();
       if (e.target.classList.contains('close')) {
-        closeTab(filename);
-        e.stopPropagation();
+        closeTab(name);
       } else {
-        switchTab(filename);
+        switchTab(name);
       }
     };
 
-    tabs.appendChild(tab);
+    tabsContainer.appendChild(tab);
   }
 
-  function switchTab(filename) {
+  function switchTab(name) {
+    // Save previous cursor
     if (activeFile && openTabs.has(activeFile)) {
-      openTabs.get(activeFile).cursorPosition =
-        editor.getPosition();
+      openTabs.get(activeFile).cursorPosition = editor.getPosition();
     }
 
-    activeFile = filename;
-    const { model, cursorPosition } = openTabs.get(filename);
+    activeFile = name;
+    const tabData = openTabs.get(name);
+    
+    // Restore model and cursor
+    editor.setModel(tabData.model);
+    if (tabData.cursorPosition) editor.setPosition(tabData.cursorPosition);
+    editor.focus();
 
-    editor.setModel(model);
-    if (cursorPosition) editor.setPosition(cursorPosition);
-
-    highlightActiveTab(filename);
+    // Update UI Classes
+    document.querySelectorAll('.tab').forEach(t => 
+      t.classList.toggle('active', t.dataset.file === name)
+    );
+    document.querySelectorAll('.file-tree .file').forEach(f => 
+      f.classList.toggle('active', f.dataset.file === name)
+    );
   }
 
-  function highlightActiveTab(filename) {
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.classList.toggle(
-        'active',
-        tab.dataset.file === filename
-      );
-    });
-  }
+  function closeTab(name) {
+    if (!openTabs.has(name)) return;
 
-  function closeTab(filename) {
-    const tabData = openTabs.get(filename);
-    if (!tabData) return;
+    // Dispose model
+    openTabs.get(name).model.dispose();
+    openTabs.delete(name);
 
-    tabData.model.dispose();
-    openTabs.delete(filename);
+    // Remove UI
+    document.querySelector(`.tab[data-file="${name}"]`)?.remove();
 
-    document
-      .querySelector(`.tab[data-file="${filename}"]`)
-      ?.remove();
-
-    if (activeFile === filename) {
-      const next = openTabs.keys().next().value;
-      if (next) switchTab(next);
-      else editor.setModel(null);
+    // Switch to another tab if active was closed
+    if (activeFile === name) {
+      activeFile = null;
+      const keys = [...openTabs.keys()];
+      if (keys.length > 0) {
+        switchTab(keys[keys.length - 1]);
+      } else {
+        editor.setModel(null); // Clear editor
+      }
     }
   }
 
   // ================================
-  // LIVE PREVIEW + HOT RELOAD
+  // FILE OPERATIONS
   // ================================
-  function debouncePreview() {
-    clearTimeout(previewTimer);
-    previewTimer = setTimeout(updatePreview, 300);
+  
+  // Create New File
+  newBtn.onclick = async () => {
+    const name = prompt("Enter file name (e.g. page.html):");
+    if (!name) return;
+    
+    const exists = (await getAllFiles()).find(f => f.id === name);
+    if (exists) return alert("File already exists!");
+
+    const newFile = { id: name, language: detectLanguage(name), content: '' };
+    await saveFileDB(newFile);
+    await renderFileTree();
+    openFile(newFile);
+  };
+
+  // Delete File
+  deleteBtn.onclick = async () => {
+    if (!activeFile) return;
+    if (!confirm(`Delete ${activeFile}?`)) return;
+
+    await deleteFileDB(activeFile);
+    closeTab(activeFile);
+    await renderFileTree();
+  };
+
+  // Rename Logic (Inline)
+  function startRename() {
+    if (!activeFile) return;
+
+    // Target input in sidebar
+    const input = document.querySelector(`[data-file="${activeFile}"] .rename-input`);
+    if (!input) return;
+
+    input.style.display = 'block';
+    input.focus();
+    // Select filename without extension (simple heuristic)
+    const dotIndex = activeFile.lastIndexOf('.');
+    input.setSelectionRange(0, dotIndex > 0 ? dotIndex : activeFile.length);
+
+    const commit = async () => {
+        const newName = input.value.trim();
+        if (newName && newName !== activeFile) {
+            await finishRename(newName);
+        } else {
+            input.style.display = 'none'; // Cancel
+        }
+    };
+
+    input.onblur = commit;
+    input.onkeydown = e => {
+      if (e.key === 'Enter') { input.blur(); } // Triggers onblur
+      if (e.key === 'Escape') { 
+          input.value = activeFile; 
+          input.style.display = 'none'; 
+      }
+    };
   }
 
-  async function updatePreview() {
+  async function finishRename(newName) {
+    // Get content from memory (editor) if open, or DB
+    let content;
+    if (openTabs.has(activeFile)) {
+      content = openTabs.get(activeFile).model.getValue();
+    } else {
+      const files = await getAllFiles();
+      content = files.find(f => f.id === activeFile)?.content || '';
+    }
+
+    // Delete old, save new
+    await deleteFileDB(activeFile);
+    const newFile = { id: newName, language: detectLanguage(newName), content };
+    await saveFileDB(newFile);
+
+    // Update UI
+    closeTab(activeFile);
+    await renderFileTree();
+    openFile(newFile);
+  }
+
+  // ================================
+  // EDITOR EVENTS (Dirty State & Save)
+  // ================================
+  editor.onDidChangeModelContent(() => {
+    if (!activeFile) return;
+    
+    const tabData = openTabs.get(activeFile);
+    if (!tabData.dirty) {
+      tabData.dirty = true;
+      const indicator = document.querySelector(`.tab[data-file="${activeFile}"] .dirty-indicator`);
+      if (indicator) indicator.textContent = '●';
+    }
+  });
+
+  window.addEventListener('keydown', async e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      if (!activeFile) return;
+
+      const tabData = openTabs.get(activeFile);
+      const content = tabData.model.getValue();
+      
+      await saveFileDB({
+        id: activeFile,
+        language: tabData.model.getLanguageId(),
+        content: content
+      });
+
+      tabData.dirty = false;
+      const indicator = document.querySelector(`.tab[data-file="${activeFile}"] .dirty-indicator`);
+      if (indicator) indicator.textContent = '';
+      
+      // Update Save Status in Toolbar
+      const status = document.getElementById('save-status');
+      status.textContent = 'Saved';
+      setTimeout(() => status.textContent = '', 2000);
+    }
+  });
+
+  // ================================
+  // EXECUTION LOGIC
+  // ================================
+  runBtn.onclick = async () => {
     const files = await getAllFiles();
+    
+    // Get content from live editors if available (to run unsaved changes)
+    const getContent = (filename) => {
+        if (openTabs.has(filename)) return openTabs.get(filename).model.getValue();
+        return files.find(f => f.id === filename)?.content || '';
+    };
 
-    const html = files.find(f => f.id === 'index.html')?.content || '';
-    const css = files.filter(f => f.id.endsWith('.css')).map(f => f.content).join('\n');
-    const js = files.filter(f => f.id.endsWith('.js')).map(f => f.content).join('\n');
+    const html = getContent('index.html');
+    const css = files.filter(f => f.id.endsWith('.css')).map(f => getContent(f.id)).join('\n');
+    const js = files.filter(f => f.id.endsWith('.js')).map(f => getContent(f.id)).join('\n');
 
-    previewFrame.srcdoc = `
+    const source = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -277,58 +389,90 @@ require(['vs/editor/editor.main'], () => {
         </head>
         <body>
           ${html}
-          <script>${js}<\/script>
+          <script>
+            try {
+              ${js}
+            } catch (err) {
+              console.error(err);
+            }
+          </script>
         </body>
       </html>
     `;
-  }
-
-  editor.onDidChangeModelContent(() => {
-    if (!activeFile) return;
-
-    const tab = openTabs.get(activeFile);
-    if (!tab) return;
-
-    saveFile({
-      id: activeFile,
-      language: tab.model.getLanguageId(),
-      content: tab.model.getValue()
-    });
-
-    debouncePreview();
-  });
-
-  // ================================
-  // CREATE NEW FILE
-  // ================================
-  document.getElementById('new-file-btn').onclick = async () => {
-    const name = prompt('Enter file name');
-    if (!name) return;
-
-    saveFile({
-      id: name,
-      language: detectLanguage(name),
-      content: ''
-    });
-
-    await renderFileTree();
+    
+    previewFrame.srcdoc = source;
   };
 
   // ================================
-  // INIT IDE
+  // COMMAND PALETTE
   // ================================
-  (async function initIDE() {
+  const commands = [
+    { label: '> Run Project', action: () => runBtn.click() },
+    { label: '> New File', action: () => newBtn.click() },
+    { label: '> Rename File', action: startRename },
+    { label: '> Delete File', action: () => deleteBtn.click() },
+    { label: '> Toggle Theme', action: () => themeToggleBtn.click() }
+  ];
+
+  function togglePalette() {
+    const isHidden = paletteOverlay.hidden;
+    if (isHidden) {
+        paletteOverlay.hidden = false;
+        paletteInput.value = '';
+        renderCommands(commands);
+        paletteInput.focus();
+    } else {
+        paletteOverlay.hidden = true;
+        editor.focus();
+    }
+  }
+
+  function renderCommands(list) {
+    commandList.innerHTML = '';
+    list.forEach(cmd => {
+      const li = document.createElement('li');
+      li.textContent = cmd.label;
+      li.onclick = () => {
+        paletteOverlay.hidden = true;
+        cmd.action();
+      };
+      commandList.appendChild(li);
+    });
+  }
+
+  paletteInput.oninput = () => {
+    const q = paletteInput.value.toLowerCase();
+    renderCommands(commands.filter(c => c.label.toLowerCase().includes(q)));
+  };
+
+  window.addEventListener('keydown', e => {
+    // Ctrl+Shift+P or F1
+    if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') || e.key === 'F1') {
+      e.preventDefault();
+      togglePalette();
+    }
+    if (e.key === 'Escape') {
+        if (!paletteOverlay.hidden) {
+            paletteOverlay.hidden = true;
+            editor.focus();
+        }
+    }
+    if (e.key === 'F2') startRename();
+  });
+
+  // ================================
+  // INITIALIZATION
+  // ================================
+  (async () => {
     await openDB();
     await seedFiles();
     await renderFileTree();
-
-    const savedTheme = localStorage.getItem('ide-theme') || 'one-dark';
-    setTheme(savedTheme);
-
+    setTheme(localStorage.getItem('ide-theme') || 'one-dark');
+    
+    // Open index.html by default
     const files = await getAllFiles();
-    if (files.length) openFile(files[0]);
-
-    updatePreview();
+    const index = files.find(f => f.id === 'index.html');
+    if (index) openFile(index);
   })();
 
 });
