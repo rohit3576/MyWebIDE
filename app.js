@@ -15,6 +15,31 @@ require(['vs/editor/editor.main'], () => {
   let db;
   const openTabs = new Map(); // filename -> { model, cursorPosition }
   let activeFile = null;
+  let previewTimer = null;
+
+  const previewFrame = document.getElementById('preview-frame');
+  const themeToggleBtn = document.getElementById('theme-toggle');
+
+  // ================================
+  // DEFINE MONACO THEMES
+  // ================================
+  monaco.editor.defineTheme('one-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#1e1e1e'
+    }
+  });
+
+  monaco.editor.defineTheme('high-contrast', {
+    base: 'hc-black',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#000000'
+    }
+  });
 
   // ================================
   // CREATE MONACO EDITOR
@@ -24,7 +49,7 @@ require(['vs/editor/editor.main'], () => {
     {
       value: '',
       language: 'html',
-      theme: 'vs-dark',
+      theme: 'one-dark',
       fontSize: 14,
       fontFamily: 'Fira Code, Consolas, monospace',
       minimap: { enabled: false },
@@ -34,6 +59,29 @@ require(['vs/editor/editor.main'], () => {
       wordWrap: 'on'
     }
   );
+
+  // ================================
+  // THEME ENGINE
+  // ================================
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+
+    if (theme === 'high-contrast') {
+      monaco.editor.setTheme('high-contrast');
+    } else {
+      monaco.editor.setTheme('one-dark');
+    }
+
+    localStorage.setItem('ide-theme', theme);
+  }
+
+  if (themeToggleBtn) {
+    themeToggleBtn.onclick = () => {
+      const current = localStorage.getItem('ide-theme') || 'one-dark';
+      const next = current === 'one-dark' ? 'high-contrast' : 'one-dark';
+      setTheme(next);
+    };
+  }
 
   // ================================
   // INDEXED DB SETUP
@@ -86,26 +134,19 @@ require(['vs/editor/editor.main'], () => {
       saveFile({
         id: 'index.html',
         language: 'html',
-        content: `<!DOCTYPE html>
-<html>
-<body>
-  <h1>Hello Zero-Latency IDE 🚀</h1>
-</body>
-</html>`
+        content: `<h1>Hello Zero-Latency IDE 🚀</h1>`
       });
 
       saveFile({
         id: 'style.css',
         language: 'css',
-        content: `body {
-  font-family: sans-serif;
-}`
+        content: `body { font-family: sans-serif; }`
       });
 
       saveFile({
-        id: 'app.js',
+        id: 'script.js',
         language: 'javascript',
-        content: `console.log("Hello World");`
+        content: `console.log("Live preview working");`
       });
     }
   }
@@ -129,7 +170,7 @@ require(['vs/editor/editor.main'], () => {
   }
 
   // ================================
-  // TAB SYSTEM (CORE FEATURE)
+  // TAB SYSTEM
   // ================================
   function openFile(file) {
     if (openTabs.has(file.id)) {
@@ -157,10 +198,7 @@ require(['vs/editor/editor.main'], () => {
     const tab = document.createElement('div');
     tab.className = 'tab';
     tab.dataset.file = filename;
-    tab.innerHTML = `
-      ${filename}
-      <span class="close">✕</span>
-    `;
+    tab.innerHTML = `${filename} <span class="close">✕</span>`;
 
     tab.onclick = e => {
       if (e.target.classList.contains('close')) {
@@ -211,14 +249,54 @@ require(['vs/editor/editor.main'], () => {
 
     if (activeFile === filename) {
       const next = openTabs.keys().next().value;
-      if (next) {
-        switchTab(next);
-      } else {
-        editor.setModel(null);
-        activeFile = null;
-      }
+      if (next) switchTab(next);
+      else editor.setModel(null);
     }
   }
+
+  // ================================
+  // LIVE PREVIEW + HOT RELOAD
+  // ================================
+  function debouncePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(updatePreview, 300);
+  }
+
+  async function updatePreview() {
+    const files = await getAllFiles();
+
+    const html = files.find(f => f.id === 'index.html')?.content || '';
+    const css = files.filter(f => f.id.endsWith('.css')).map(f => f.content).join('\n');
+    const js = files.filter(f => f.id.endsWith('.js')).map(f => f.content).join('\n');
+
+    previewFrame.srcdoc = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>${css}</style>
+        </head>
+        <body>
+          ${html}
+          <script>${js}<\/script>
+        </body>
+      </html>
+    `;
+  }
+
+  editor.onDidChangeModelContent(() => {
+    if (!activeFile) return;
+
+    const tab = openTabs.get(activeFile);
+    if (!tab) return;
+
+    saveFile({
+      id: activeFile,
+      language: tab.model.getLanguageId(),
+      content: tab.model.getValue()
+    });
+
+    debouncePreview();
+  });
 
   // ================================
   // CREATE NEW FILE
@@ -244,8 +322,13 @@ require(['vs/editor/editor.main'], () => {
     await seedFiles();
     await renderFileTree();
 
+    const savedTheme = localStorage.getItem('ide-theme') || 'one-dark';
+    setTheme(savedTheme);
+
     const files = await getAllFiles();
     if (files.length) openFile(files[0]);
+
+    updatePreview();
   })();
 
 });
