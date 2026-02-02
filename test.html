@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Page</title>
+  <style>
+    /* ================================
+       INLINE CSS - MODERN DARK THEME
+    ================================ */
+    :root {
+      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --card-bg: rgba(255, 255, 255, 0.1);
+      --text-main: #ffffff;
+      --text-sec: #e0e0e0;
+      --accent: #00d2ff;
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-main);
+      overflow: hidden;
+    }
+
+    .container {
+      text-align: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      width: 300px;
+      transform: translateY(0);
+      transition: transform 0.3s ease;
+    }
+
+    .container:hover {
+      transform: translateY(-5px);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    p {
+      color: var(--text-sec);
+      font-size: 0.9rem;
+      margin-bottom: 30px;
+    }
+
+    /* Interactive Counter */
+    .counter-box {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .count-display {
+      font-size: 2rem;
+      font-weight: bold;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent);
+    }
+
+    button {
+      background: var(--accent);
+      border: none;
+      color: #000;
+      font-weight: bold;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: opacity 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    /* Footer Clock */
+    .clock {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Hello World 🚀</h1>
+    <p>This is a live test page.</p>
+
+    <div class="counter-box">
+      <span id="count" class="count-display">0</span>
+      <button onclick="increment()">Count +</button>
+    </div>
+
+    <div class="clock" id="clock">
+      Loading time...
+    </div>
+  </div>
+
+  <script>
+    // ================================
+    // INLINE JS - INTERACTIVITY
+    // ================================
+    
+    // 1. Counter Logic
+    let count = 0;
+    const countEl = document.getElementById('count');
+    
+    function increment() {
+      count++;
+      countEl.innerText = count;
+      
+      // Animation effect
+      countEl.style.transform = 'scale(1.2)';
+      setTimeout(() => countEl.style.transform = 'scale(1)', 100);
+    }
+
+    // 2. Real-time Clock
+    function updateClock() {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString();
+      document.getElementById('clock').innerText = `Current Time: ${timeString}`;
+    }
+
+    setInterval(updateClock, 1000);
+    updateClock(); // Initial call
+
+    // 3. Console Log Test
+    console.log("System Status: Online");
+    console.log("Welcome to your Zero-Latency IDE!");
+  </script>
+
+</body>
+</html>
