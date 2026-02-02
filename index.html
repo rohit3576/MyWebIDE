@@ -3,104 +3,704 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Zero-Latency Web IDE" />
+  <meta name="description" content="Zero-Latency Web IDE - A VS Code-like development environment in your browser" />
   <title>Zero-Latency Web IDE</title>
-
+  
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-
-  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Monaco Editor CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css" />
 </head>
 <body>
-
+  <!-- App Container -->
   <div id="app">
-
-    <aside id="sidebar">
-      <div class="sidebar-header">
-        <span class="header-title">EXPLORER</span>
-        <div class="sidebar-actions">
-          <button id="new-file-btn" title="New File">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-          </button>
-          <button id="delete-file-btn" title="Delete File">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
+    
+    <!-- Activity Bar (Leftmost) -->
+    <div id="activity-bar">
+      <div class="activity-bar-items">
+        <!-- Explorer -->
+        <div class="activity-item active" data-view="explorer" title="Explorer (Ctrl+Shift+E)">
+          <i class="fas fa-folder"></i>
+        </div>
+        
+        <!-- Search -->
+        <div class="activity-item" data-view="search" title="Search (Ctrl+Shift+F)">
+          <i class="fas fa-search"></i>
+        </div>
+        
+        <!-- Source Control -->
+        <div class="activity-item" data-view="git" title="Source Control (Ctrl+Shift+G)">
+          <i class="fas fa-code-branch"></i>
+          <span class="activity-badge">0</span>
+        </div>
+        
+        <!-- Extensions -->
+        <div class="activity-item" data-view="extensions" title="Extensions (Ctrl+Shift+X)">
+          <i class="fas fa-puzzle-piece"></i>
+        </div>
+        
+        <!-- Debug -->
+        <div class="activity-item" data-view="debug" title="Run and Debug (Ctrl+Shift+D)">
+          <i class="fas fa-bug"></i>
+        </div>
+        
+        <!-- Settings -->
+        <div class="activity-item" data-view="settings" title="Settings (Ctrl+,)">
+          <i class="fas fa-cog"></i>
         </div>
       </div>
-
-      <ul class="file-tree" id="file-tree">
-        </ul>
-
-      <div class="theme-switcher">
-        <button id="theme-toggle">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-          Toggle Theme
-        </button>
+      
+      <div class="activity-bar-bottom">
+        <!-- Profile -->
+        <div class="activity-item" data-view="profile" title="Account">
+          <i class="fas fa-user"></i>
+        </div>
+        
+        <!-- Theme Toggle -->
+        <div class="activity-item" id="theme-toggle" title="Toggle Theme">
+          <i class="fas fa-moon"></i>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <!-- Explorer View -->
+      <div class="sidebar-view active" id="explorer-view">
+        <div class="sidebar-header">
+          <span class="header-title">EXPLORER</span>
+          <div class="sidebar-actions">
+            <button class="sidebar-action-btn" id="new-file-btn" title="New File (Ctrl+N)">
+              <i class="fas fa-file"></i>
+            </button>
+            <button class="sidebar-action-btn" id="new-folder-btn" title="New Folder">
+              <i class="fas fa-folder-plus"></i>
+            </button>
+            <button class="sidebar-action-btn" id="refresh-btn" title="Refresh">
+              <i class="fas fa-sync-alt"></i>
+            </button>
+            <button class="sidebar-action-btn" id="collapse-all-btn" title="Collapse All">
+              <i class="fas fa-compress-alt"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- File Tree -->
+        <div class="file-tree-container">
+          <ul class="file-tree" id="file-tree">
+            <!-- Files will be populated by JavaScript -->
+          </ul>
+        </div>
+      </div>
+      
+      <!-- Search View -->
+      <div class="sidebar-view" id="search-view">
+        <div class="sidebar-header">
+          <span class="header-title">SEARCH</span>
+        </div>
+        <div class="search-container">
+          <div class="search-input-container">
+            <input type="text" class="search-input" placeholder="Search (Ctrl+Shift+F)" />
+            <div class="search-options">
+              <button class="search-option-btn" title="Match Case">
+                <i class="fas fa-font"></i>
+              </button>
+              <button class="search-option-btn" title="Match Whole Word">
+                <i class="fas fa-text-width"></i>
+              </button>
+              <button class="search-option-btn" title="Use Regular Expression">
+                <i class="fas fa-asterisk"></i>
+              </button>
+            </div>
+          </div>
+          <div class="search-results">
+            <div class="search-results-placeholder">
+              <i class="fas fa-search"></i>
+              <p>Search across all files</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Source Control View -->
+      <div class="sidebar-view" id="git-view">
+        <div class="sidebar-header">
+          <span class="header-title">SOURCE CONTROL</span>
+          <div class="sidebar-actions">
+            <button class="sidebar-action-btn" id="git-commit-btn" title="Commit">
+              <i class="fas fa-check"></i>
+            </button>
+            <button class="sidebar-action-btn" id="git-refresh-btn" title="Refresh">
+              <i class="fas fa-sync-alt"></i>
+            </button>
+            <button class="sidebar-action-btn" id="git-more-btn" title="More Actions">
+              <i class="fas fa-ellipsis-h"></i>
+            </button>
+          </div>
+        </div>
+        <div class="source-control-container">
+          <div class="scm-input-container">
+            <input type="text" class="scm-input" placeholder="Message (Ctrl+Enter to commit)" />
+            <button class="scm-commit-btn">Commit</button>
+          </div>
+          <div class="changes-container">
+            <div class="changes-header">
+              <span>CHANGES</span>
+              <span class="changes-count">0</span>
+            </div>
+            <div class="changes-placeholder">
+              <i class="fas fa-code-branch"></i>
+              <p>No changes</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Extensions View -->
+      <div class="sidebar-view" id="extensions-view">
+        <div class="sidebar-header">
+          <span class="header-title">EXTENSIONS</span>
+          <div class="sidebar-actions">
+            <button class="sidebar-action-btn" id="refresh-extensions-btn" title="Refresh">
+              <i class="fas fa-sync-alt"></i>
+            </button>
+          </div>
+        </div>
+        <div class="extensions-container">
+          <div class="extensions-search-container">
+            <input type="text" class="extensions-search" placeholder="Search Extensions in Marketplace" />
+          </div>
+          <div class="extensions-categories">
+            <div class="extension-category active">RECOMMENDED</div>
+            <div class="extension-category">INSTALLED</div>
+            <div class="extension-category">POPULAR</div>
+          </div>
+          <div class="extensions-list">
+            <div class="extension-placeholder">
+              <i class="fas fa-puzzle-piece"></i>
+              <p>Browse extensions in the marketplace</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Debug View -->
+      <div class="sidebar-view" id="debug-view">
+        <div class="sidebar-header">
+          <span class="header-title">RUN AND DEBUG</span>
+          <div class="sidebar-actions">
+            <button class="sidebar-action-btn" id="start-debug-btn" title="Start Debugging (F5)">
+              <i class="fas fa-play"></i>
+            </button>
+            <button class="sidebar-action-btn" id="debug-config-btn" title="Open launch.json">
+              <i class="fas fa-cog"></i>
+            </button>
+          </div>
+        </div>
+        <div class="debug-container">
+          <div class="debug-configurations">
+            <select class="debug-select">
+              <option>Select configuration...</option>
+              <option>Launch Chrome</option>
+              <option>Launch Firefox</option>
+              <option>Launch Edge</option>
+            </select>
+          </div>
+          <div class="debug-variables">
+            <div class="debug-section">
+              <div class="debug-section-header">VARIABLES</div>
+              <div class="debug-placeholder">No variables</div>
+            </div>
+            <div class="debug-section">
+              <div class="debug-section-header">WATCH</div>
+              <div class="debug-placeholder">Click + to add expression</div>
+            </div>
+            <div class="debug-section">
+              <div class="debug-section-header">CALL STACK</div>
+              <div class="debug-placeholder">No call stack available</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Settings View -->
+      <div class="sidebar-view" id="settings-view">
+        <div class="sidebar-header">
+          <span class="header-title">SETTINGS</span>
+          <div class="sidebar-actions">
+            <button class="sidebar-action-btn" id="settings-search-btn" title="Search Settings">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+        </div>
+        <div class="settings-container">
+          <div class="settings-search-container">
+            <input type="text" class="settings-search" placeholder="Search Settings" />
+          </div>
+          <div class="settings-tabs">
+            <div class="settings-tab active">Editor</div>
+            <div class="settings-tab">Workbench</div>
+            <div class="settings-tab">Features</div>
+            <div class="settings-tab">Application</div>
+          </div>
+          <div class="settings-content">
+            <div class="settings-group">
+              <div class="settings-group-title">Text Editor</div>
+              <div class="settings-item">
+                <span class="settings-label">Font Size</span>
+                <input type="number" class="settings-input" value="14" min="8" max="72" />
+              </div>
+              <div class="settings-item">
+                <span class="settings-label">Font Family</span>
+                <input type="text" class="settings-input" value="'JetBrains Mono', monospace" />
+              </div>
+              <div class="settings-item">
+                <span class="settings-label">Tab Size</span>
+                <input type="number" class="settings-input" value="2" min="1" max="8" />
+              </div>
+              <div class="settings-item">
+                <span class="settings-label">Word Wrap</span>
+                <select class="settings-select">
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                  <option value="wordWrapColumn">Word Wrap Column</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </aside>
-
+    
+    <!-- Main Editor Area -->
     <main id="main">
-
-      <div id="toolbar">
-        <div class="toolbar-left">
-          <button id="run-btn">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="margin-right: 6px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-            Run
+      
+      <!-- Editor Tabs -->
+      <div id="editor-tabs">
+        <div class="tabs-container" id="tabs-container">
+          <!-- Tabs will be populated by JavaScript -->
+        </div>
+        <div class="tabs-actions">
+          <button class="tabs-action-btn" id="split-editor-btn" title="Split Editor (Ctrl+\)">
+            <i class="fas fa-columns"></i>
+          </button>
+          <button class="tabs-action-btn" id="close-all-tabs-btn" title="Close All Editors">
+            <i class="fas fa-times"></i>
           </button>
         </div>
-        <div class="toolbar-right">
-          <span id="save-status" title="Status"></span>
+      </div>
+      
+      <!-- Editor Container -->
+      <div id="editor-container">
+        <!-- Primary Editor -->
+        <div class="editor-pane primary-pane" id="primary-editor-pane">
+          <div id="editor"></div>
+        </div>
+        
+        <!-- Secondary Editor (for split view) -->
+        <div class="editor-pane secondary-pane" id="secondary-editor-pane" style="display: none;">
+          <div id="secondary-editor"></div>
         </div>
       </div>
-
-      <div id="tabs">
+      
+      <!-- Panel (Bottom Area) -->
+      <div id="panel">
+        <div class="panel-tabs">
+          <div class="panel-tab active" data-panel="problems">
+            <i class="fas fa-exclamation-circle"></i>
+            PROBLEMS <span class="panel-badge">0</span>
+          </div>
+          <div class="panel-tab" data-panel="output">
+            <i class="fas fa-terminal"></i>
+            OUTPUT
+          </div>
+          <div class="panel-tab" data-panel="debug-console">
+            <i class="fas fa-bug"></i>
+            DEBUG CONSOLE
+          </div>
+          <div class="panel-tab" data-panel="terminal">
+            <i class="fas fa-terminal"></i>
+            TERMINAL
+          </div>
         </div>
-
-      <div id="editor"></div>
-
+        
+        <div class="panel-content">
+          <!-- Problems Panel -->
+          <div class="panel-view active" id="problems-panel">
+            <div class="panel-empty">
+              <i class="fas fa-check-circle"></i>
+              <p>No problems have been detected in the workspace.</p>
+            </div>
+          </div>
+          
+          <!-- Output Panel -->
+          <div class="panel-view" id="output-panel">
+            <div class="output-container">
+              <select class="output-select">
+                <option>Tasks</option>
+                <option>Extension Host</option>
+                <option>Log (Main)</option>
+                <option>Log (Shared)</option>
+                <option>Log (Window)</option>
+              </select>
+              <div class="output-content">
+                <pre class="output-text">[Starting workspace initialization]
+[Workspace ready]</pre>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Debug Console Panel -->
+          <div class="panel-view" id="debug-console-panel">
+            <div class="debug-console-container">
+              <div class="debug-console-input-container">
+                <span class="debug-prompt">&gt;</span>
+                <input type="text" class="debug-console-input" placeholder="Type debug commands here" />
+              </div>
+              <div class="debug-console-output">
+                <div class="debug-console-message">Debug console ready</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Terminal Panel -->
+          <div class="panel-view" id="terminal-panel">
+            <div class="terminal-container">
+              <div class="terminal-tabs">
+                <div class="terminal-tab active">bash</div>
+                <div class="terminal-tab">powershell</div>
+                <div class="terminal-tab">cmd</div>
+              </div>
+              <div class="terminal-content">
+                <div class="terminal-line">$ <span class="terminal-cursor">█</span></div>
+              </div>
+              <div class="terminal-actions">
+                <button class="terminal-action-btn" title="New Terminal (Ctrl+Shift+`)">
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button class="terminal-action-btn" title="Kill Terminal">
+                  <i class="fas fa-trash"></i>
+                </button>
+                <button class="terminal-action-btn" title="Clear Terminal">
+                  <i class="fas fa-broom"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Panel Resizer -->
+        <div class="panel-resizer"></div>
+      </div>
     </main>
-
-    <section id="preview">
+    
+    <!-- Live Preview Panel -->
+    <section id="preview-panel">
       <div class="preview-header">
-        <span class="preview-label">LIVE PREVIEW</span>
+        <span class="preview-title">LIVE PREVIEW</span>
+        <div class="preview-actions">
+          <button class="preview-action-btn" id="preview-refresh-btn" title="Refresh Preview">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+          <button class="preview-action-btn" id="preview-external-btn" title="Open in New Tab">
+            <i class="fas fa-external-link-alt"></i>
+          </button>
+          <button class="preview-action-btn" id="preview-toggle-btn" title="Toggle Preview">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
       </div>
-      <iframe id="preview-frame" sandbox="allow-scripts" title="Preview"></iframe>
+      <div class="preview-container">
+        <iframe id="preview-frame" sandbox="allow-scripts allow-modals allow-forms allow-same-origin" title="Live Preview"></iframe>
+        <div class="preview-overlay" id="preview-overlay">
+          <div class="preview-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading Preview...</p>
+          </div>
+        </div>
+      </div>
     </section>
-
   </div>
-
-  <div id="command-palette-overlay" hidden>
-    <div class="command-palette">
-      <div class="palette-search-wrapper">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input
-          type="text"
-          id="command-input"
-          placeholder="Type a command..."
-          autocomplete="off"
-        />
-      </div>
-      <ul id="command-list">
-        </ul>
-      <div class="palette-footer">
-        <span><kbd>↑</kbd> <kbd>↓</kbd> to navigate</span>
-        <span><kbd>↵</kbd> to select</span>
-        <span><kbd>esc</kbd> to close</span>
-      </div>
-    </div>
-  </div>
-
+  
+  <!-- Status Bar -->
   <footer id="status-bar">
     <div class="status-left">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-      <span>Zero-Latency IDE</span>
+      <!-- Branch Indicator -->
+      <div class="status-item" id="git-branch-status">
+        <i class="fas fa-code-branch"></i>
+        <span>main</span>
+      </div>
+      
+      <!-- Sync Status -->
+      <div class="status-item" id="git-sync-status">
+        <i class="fas fa-cloud"></i>
+        <span>Synced</span>
+      </div>
+      
+      <!-- Error/Warning Count -->
+      <div class="status-item" id="problems-status">
+        <i class="fas fa-check-circle"></i>
+        <span>0 Errors • 0 Warnings</span>
+      </div>
+      
+      <!-- Language Mode -->
+      <div class="status-item" id="language-status">
+        <span>JavaScript</span>
+      </div>
+      
+      <!-- Indentation -->
+      <div class="status-item" id="indentation-status">
+        <span>Spaces: 2</span>
+      </div>
+      
+      <!-- Encoding -->
+      <div class="status-item" id="encoding-status">
+        <span>UTF-8</span>
+      </div>
+      
+      <!-- Line Ending -->
+      <div class="status-item" id="line-ending-status">
+        <span>LF</span>
+      </div>
     </div>
-    <div class="status-right" id="status-cursor">Ln 1, Col 1</div>
+    
+    <div class="status-right">
+      <!-- Cursor Position -->
+      <div class="status-item" id="cursor-position">
+        <span>Ln 1, Col 1</span>
+      </div>
+      
+      <!-- Selection Count -->
+      <div class="status-item" id="selection-count">
+        <span>Plain Text</span>
+      </div>
+      
+      <!-- File Size -->
+      <div class="status-item" id="file-size">
+        <span>1.2 KB</span>
+      </div>
+      
+      <!-- Zoom Level -->
+      <div class="status-item" id="zoom-level">
+        <button class="status-btn" id="zoom-out-btn" title="Zoom Out (Ctrl+-)">
+          <i class="fas fa-search-minus"></i>
+        </button>
+        <span>100%</span>
+        <button class="status-btn" id="zoom-in-btn" title="Zoom In (Ctrl+=)">
+          <i class="fas fa-search-plus"></i>
+        </button>
+      </div>
+      
+      <!-- Feedback -->
+      <div class="status-item" id="feedback-status">
+        <button class="status-btn" title="Feedback">
+          <i class="fas fa-smile"></i>
+        </button>
+      </div>
+      
+      <!-- Notifications -->
+      <div class="status-item" id="notification-status">
+        <button class="status-btn" title="No Notifications">
+          <i class="fas fa-bell"></i>
+        </button>
+      </div>
+    </div>
   </footer>
-
+  
+  <!-- Context Menu -->
+  <div id="context-menu" class="context-menu" style="display: none;">
+    <ul class="context-menu-list">
+      <li class="context-menu-item" data-action="cut">
+        <i class="fas fa-cut"></i>
+        <span>Cut</span>
+        <span class="context-menu-shortcut">Ctrl+X</span>
+      </li>
+      <li class="context-menu-item" data-action="copy">
+        <i class="fas fa-copy"></i>
+        <span>Copy</span>
+        <span class="context-menu-shortcut">Ctrl+C</span>
+      </li>
+      <li class="context-menu-item" data-action="paste">
+        <i class="fas fa-paste"></i>
+        <span>Paste</span>
+        <span class="context-menu-shortcut">Ctrl+V</span>
+      </li>
+      <li class="context-menu-divider"></li>
+      <li class="context-menu-item" data-action="rename">
+        <i class="fas fa-i-cursor"></i>
+        <span>Rename</span>
+        <span class="context-menu-shortcut">F2</span>
+      </li>
+      <li class="context-menu-item" data-action="delete">
+        <i class="fas fa-trash"></i>
+        <span>Delete</span>
+        <span class="context-menu-shortcut">Delete</span>
+      </li>
+      <li class="context-menu-divider"></li>
+      <li class="context-menu-item" data-action="new-file">
+        <i class="fas fa-file"></i>
+        <span>New File</span>
+      </li>
+      <li class="context-menu-item" data-action="new-folder">
+        <i class="fas fa-folder-plus"></i>
+        <span>New Folder</span>
+      </li>
+      <li class="context-menu-divider"></li>
+      <li class="context-menu-item" data-action="download">
+        <i class="fas fa-download"></i>
+        <span>Download</span>
+      </li>
+      <li class="context-menu-item" data-action="reveal-in-explorer">
+        <i class="fas fa-folder-open"></i>
+        <span>Reveal in Explorer</span>
+      </li>
+    </ul>
+  </div>
+  
+  <!-- Notification Center -->
+  <div id="notification-center" class="notification-center" style="display: none;">
+    <div class="notification-header">
+      <h3>NOTIFICATIONS</h3>
+      <button class="notification-clear-btn">Clear All</button>
+    </div>
+    <div class="notification-list">
+      <div class="notification-empty">
+        <i class="fas fa-bell-slash"></i>
+        <p>No new notifications</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Quick Input (Command Palette) -->
+  <div id="quick-input-overlay" class="quick-input-overlay" style="display: none;">
+    <div class="quick-input-container">
+      <div class="quick-input-header">
+        <input type="text" id="command-input" class="quick-input" placeholder="Type a command or search..." autocomplete="off" />
+      </div>
+      <div class="quick-input-list" id="command-list">
+        <div class="quick-input-group">
+          <div class="quick-input-group-title">Recently Used</div>
+          <div class="quick-input-item selected">
+            <span class="quick-input-icon"><i class="fas fa-play"></i></span>
+            <span class="quick-input-label">Run Project</span>
+            <span class="quick-input-detail">Ctrl+F5</span>
+          </div>
+          <div class="quick-input-item">
+            <span class="quick-input-icon"><i class="fas fa-terminal"></i></span>
+            <span class="quick-input-label">New Terminal</span>
+            <span class="quick-input-detail">Ctrl+Shift+`</span>
+          </div>
+        </div>
+        <div class="quick-input-group">
+          <div class="quick-input-group-title">File</div>
+          <div class="quick-input-item">
+            <span class="quick-input-icon"><i class="fas fa-file"></i></span>
+            <span class="quick-input-label">New File</span>
+            <span class="quick-input-detail">Ctrl+N</span>
+          </div>
+          <div class="quick-input-item">
+            <span class="quick-input-icon"><i class="fas fa-folder-open"></i></span>
+            <span class="quick-input-label">Open File...</span>
+            <span class="quick-input-detail">Ctrl+O</span>
+          </div>
+          <div class="quick-input-item">
+            <span class="quick-input-icon"><i class="fas fa-save"></i></span>
+            <span class="quick-input-label">Save</span>
+            <span class="quick-input-detail">Ctrl+S</span>
+          </div>
+        </div>
+      </div>
+      <div class="quick-input-footer">
+        <span class="quick-input-hint"><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+        <span class="quick-input-hint"><kbd>↵</kbd> Confirm</span>
+        <span class="quick-input-hint"><kbd>esc</kbd> Close</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Welcome Screen -->
+  <div id="welcome-screen" class="welcome-screen" style="display: none;">
+    <div class="welcome-container">
+      <div class="welcome-header">
+        <h1>Zero-Latency IDE</h1>
+        <p class="welcome-subtitle">A browser-based development environment</p>
+      </div>
+      
+      <div class="welcome-sections">
+        <div class="welcome-section">
+          <h2>Start</h2>
+          <div class="welcome-action" data-action="new-file">
+            <i class="fas fa-file"></i>
+            <div>
+              <h3>New File</h3>
+              <p>Create a new file</p>
+            </div>
+          </div>
+          <div class="welcome-action" data-action="open-folder">
+            <i class="fas fa-folder-open"></i>
+            <div>
+              <h3>Open Folder</h3>
+              <p>Open a project folder</p>
+            </div>
+          </div>
+          <div class="welcome-action" data-action="clone-repo">
+            <i class="fas fa-code-branch"></i>
+            <div>
+              <h3>Clone Repository</h3>
+              <p>Clone a Git repository</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="welcome-section">
+          <h2>Recent</h2>
+          <div class="welcome-recent">
+            <p class="welcome-empty">No recent projects</p>
+          </div>
+        </div>
+        
+        <div class="welcome-section">
+          <h2>Help</h2>
+          <div class="welcome-action" data-action="docs">
+            <i class="fas fa-book"></i>
+            <div>
+              <h3>Documentation</h3>
+              <p>Browse the documentation</p>
+            </div>
+          </div>
+          <div class="welcome-action" data-action="keyboard-shortcuts">
+            <i class="fas fa-keyboard"></i>
+            <div>
+              <h3>Keyboard Shortcuts</h3>
+              <p>View all keyboard shortcuts</p>
+            </div>
+          </div>
+          <div class="welcome-action" data-action="report-issue">
+            <i class="fas fa-bug"></i>
+            <div>
+              <h3>Report Issue</h3>
+              <p>Submit feedback or report a bug</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="welcome-footer">
+        <button class="welcome-close-btn" id="welcome-close-btn">Close Welcome Page</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Monaco Editor Loader -->
   <script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
+  
+  <!-- App Scripts -->
   <script src="app.js"></script>
-
 </body>
 </html>
